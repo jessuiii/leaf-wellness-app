@@ -1,6 +1,6 @@
-import { Camera, CameraResultType, CameraSource } from '@capacitor/camera';
+import { useRef } from 'react';
 import { Button } from '@/components/ui/button';
-import { Camera as CameraIcon, Image as ImageIcon } from 'lucide-react';
+import { Camera as CameraIcon, Image as ImageIcon, Upload } from 'lucide-react';
 import { toast } from 'sonner';
 
 interface CameraCaptureProps {
@@ -8,46 +8,60 @@ interface CameraCaptureProps {
 }
 
 export const CameraCapture = ({ onImageCapture }: CameraCaptureProps) => {
-  const takePhoto = async () => {
-    try {
-      const image = await Camera.getPhoto({
-        quality: 90,
-        allowEditing: false,
-        resultType: CameraResultType.DataUrl,
-        source: CameraSource.Camera,
-      });
+  const cameraInputRef = useRef<HTMLInputElement>(null);
+  const galleryInputRef = useRef<HTMLInputElement>(null);
 
-      if (image.dataUrl) {
-        onImageCapture(image.dataUrl);
-      }
-    } catch (error) {
-      console.error('Error taking photo:', error);
-      toast.error('Failed to capture photo. Please try again.');
+  const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    if (!file.type.startsWith('image/')) {
+      toast.error('Please select an image file');
+      return;
     }
+
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const result = e.target?.result as string;
+      if (result) {
+        onImageCapture(result);
+      }
+    };
+    reader.onerror = () => {
+      toast.error('Failed to read image. Please try again.');
+    };
+    reader.readAsDataURL(file);
   };
 
-  const selectFromGallery = async () => {
-    try {
-      const image = await Camera.getPhoto({
-        quality: 90,
-        allowEditing: false,
-        resultType: CameraResultType.DataUrl,
-        source: CameraSource.Photos,
-      });
+  const triggerCamera = () => {
+    cameraInputRef.current?.click();
+  };
 
-      if (image.dataUrl) {
-        onImageCapture(image.dataUrl);
-      }
-    } catch (error) {
-      console.error('Error selecting photo:', error);
-      toast.error('Failed to select photo. Please try again.');
-    }
+  const triggerGallery = () => {
+    galleryInputRef.current?.click();
   };
 
   return (
     <div className="flex flex-col gap-4 w-full">
+      <input
+        ref={cameraInputRef}
+        type="file"
+        accept="image/*"
+        capture="environment"
+        onChange={handleFileSelect}
+        className="hidden"
+      />
+      
+      <input
+        ref={galleryInputRef}
+        type="file"
+        accept="image/*"
+        onChange={handleFileSelect}
+        className="hidden"
+      />
+      
       <Button 
-        onClick={takePhoto}
+        onClick={triggerCamera}
         className="h-16 text-lg font-semibold bg-gradient-to-r from-primary to-accent hover:opacity-90 transition-opacity shadow-medium"
       >
         <CameraIcon className="mr-2 h-6 w-6" />
@@ -55,12 +69,12 @@ export const CameraCapture = ({ onImageCapture }: CameraCaptureProps) => {
       </Button>
       
       <Button 
-        onClick={selectFromGallery}
+        onClick={triggerGallery}
         variant="outline"
         className="h-16 text-lg font-semibold border-2 border-primary text-primary hover:bg-primary hover:text-primary-foreground transition-all"
       >
-        <ImageIcon className="mr-2 h-6 w-6" />
-        Choose from Gallery
+        <Upload className="mr-2 h-6 w-6" />
+        Upload Image
       </Button>
     </div>
   );
