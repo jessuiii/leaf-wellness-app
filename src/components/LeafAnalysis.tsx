@@ -3,6 +3,7 @@ import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Loader2, CheckCircle, AlertTriangle, ArrowLeft } from 'lucide-react';
 import { toast } from 'sonner';
+import { API_CONFIG } from '@/config/api';
 
 interface LeafAnalysisProps {
   imageData: string;
@@ -27,37 +28,43 @@ export const LeafAnalysis = ({ imageData, onBack, onAnalysisComplete }: LeafAnal
     setIsAnalyzing(true);
     
     try {
-      // TODO: Replace with actual API call to your backend
-      // const response = await fetch('YOUR_API_ENDPOINT', {
-      //   method: 'POST',
-      //   body: JSON.stringify({ image: imageData }),
-      //   headers: { 'Content-Type': 'application/json' }
-      // });
-      // const data = await response.json();
+      const apiUrl = `${API_CONFIG.PYTHON_BACKEND_URL}${API_CONFIG.ANALYZE_ENDPOINT}`;
       
-      // Simulated API response for demo
-      await new Promise(resolve => setTimeout(resolve, 2000));
+      const response = await fetch(apiUrl, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          image: imageData
+        })
+      });
+
+      if (!response.ok) {
+        throw new Error(`API error: ${response.status} ${response.statusText}`);
+      }
+
+      const data = await response.json();
       
-      const mockResult: AnalysisResult = {
-        isHealthy: Math.random() > 0.5,
-        confidence: 85 + Math.random() * 15,
-        disease: Math.random() > 0.5 ? undefined : 'Early Blight',
-        recommendations: [
-          'Remove affected leaves',
-          'Apply fungicide treatment',
-          'Monitor nearby plants'
-        ],
+      // Map your Python API response to AnalysisResult format
+      // Adjust these fields based on your actual API response structure
+      const analysisResult: AnalysisResult = {
+        isHealthy: data.is_healthy ?? data.isHealthy ?? false,
+        confidence: data.confidence ?? 0,
+        disease: data.disease || data.disease_name || undefined,
+        recommendations: data.recommendations || data.treatment || [],
         timestamp: Date.now(),
         imageData
       };
       
-      setResult(mockResult);
-      onAnalysisComplete(mockResult);
+      setResult(analysisResult);
+      onAnalysisComplete(analysisResult);
       
       toast.success('Analysis complete!');
     } catch (error) {
       console.error('Analysis error:', error);
-      toast.error('Failed to analyze leaf. Please try again.');
+      const errorMessage = error instanceof Error ? error.message : 'Failed to analyze leaf';
+      toast.error(`${errorMessage}. Make sure your Python backend is running.`);
     } finally {
       setIsAnalyzing(false);
     }
