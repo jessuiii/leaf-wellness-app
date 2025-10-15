@@ -43,7 +43,7 @@ app = Flask(__name__)
 CORS(app)  # Enable CORS for frontend integration
 
 # Model saved with Keras model.save()
-MODEL_PATH ='plant_disease_model.h5'
+MODEL_PATH = os.path.join(os.path.dirname(__file__), 'plant_disease_model.h5')
 
 # Load your trained model
 model = load_model(MODEL_PATH)
