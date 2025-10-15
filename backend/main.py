@@ -430,12 +430,14 @@ from tensorflow.keras.models import load_model
 from tensorflow.keras.preprocessing import image
 
 # Flask utils
-from flask import Flask, redirect, url_for, request, render_template
-from werkzeug.utils import secure_filename
-#from gevent.pywsgi import WSGIServer
+from flask import Flask, request, jsonify
+from flask_cors import CORS
+import base64
+import io
 
 # Define a flask app
 app = Flask(__name__)
+CORS(app)  # Enable CORS for frontend integration
 
 # Model saved with Keras model.save()
 MODEL_PATH ='plant_disease_model.h5'
@@ -446,81 +448,106 @@ model = load_model(MODEL_PATH)
 
 
 
-def model_predict(img_path, model):
-    print(img_path)
-    img = image.load_img(img_path, target_size=(224, 224))
-
+def model_predict(img, model):
+    """Predict from PIL Image object"""
+    img = img.resize((224, 224))
+    
     # Preprocessing the image
     x = image.img_to_array(img)
-    # x = np.true_divide(x, 255)
-    ## Scaling
-    x=x/255
+    x = x / 255
     x = np.expand_dims(x, axis=0)
-   
-
-    # Be careful how your trained model deals with the input
-    # otherwise, it won't make correct prediction!
-   # x = preprocess_input(x)
 
     preds = model.predict(x)
-    preds=np.argmax(preds, axis=1)
-    if preds==0:
-        preds="The Disease is Pepper__bell___Bacterial_spot"
-    elif preds==1:
-        preds="The Disease is Pepper__bell___healthy"
-    elif preds==2:
-        preds="The Disease is Potato___Early_blight"
-    elif preds==3:
-        preds="Te Disease is Potato___healthy"
-    elif preds==4:
-        preds="The Disease is Potato___Late_blight"
-    elif preds==5:
-        preds="The Disease is Tomato__Tomato_mosaic_virus"
-    elif preds==6:
-        preds="The Disease is Tomato__Tomato_YellowLeaf__Curl_Virus"
-    elif preds==7:
-        preds="The Disease is Tomato_Bacterial_spot"
-    elif preds==8:
-        preds="The Disease is Tomato_Early_blight"
-    elif preds==9:
-        preds="The Disease is Pepper__bell___Bacterial_spot"
-    elif preds==10:
-        preds="The Disease is Pepper__bell___Bacterial_spot"
-    elif preds==11:
-        preds="The Disease is Pepper__bell___Bacterial_spot"
-    elif preds==12:
-        preds="The Disease is Pepper__bell___Bacterial_spot"
-    elif preds==13:
-        preds="The Disease is Pepper__bell___Bacterial_spot"
+    class_idx = np.argmax(preds, axis=1)[0]
+    confidence = float(preds[0][class_idx]) * 100
     
+    disease_map = {
+        0: "Pepper__bell___Bacterial_spot",
+        1: "Pepper__bell___healthy",
+        2: "Potato___Early_blight",
+        3: "Potato___healthy",
+        4: "Potato___Late_blight",
+        5: "Tomato__Tomato_mosaic_virus",
+        6: "Tomato__Tomato_YellowLeaf__Curl_Virus",
+        7: "Tomato_Bacterial_spot",
+        8: "Tomato_Early_blight",
+    }
     
-    return preds
+    disease_name = disease_map.get(class_idx, "Unknown")
+    is_healthy = "healthy" in disease_name.lower()
+    
+    # Generate recommendations
+    recommendations = []
+    if not is_healthy:
+        if "Bacterial_spot" in disease_name:
+            recommendations = [
+                "Remove infected leaves immediately",
+                "Apply copper-based bactericide",
+                "Avoid overhead watering"
+            ]
+        elif "Early_blight" in disease_name:
+            recommendations = [
+                "Remove affected foliage",
+                "Apply fungicide treatment",
+                "Improve air circulation"
+            ]
+        elif "Late_blight" in disease_name:
+            recommendations = [
+                "Remove infected plants immediately",
+                "Apply fungicide as directed",
+                "Ensure proper spacing between plants"
+            ]
+        elif "mosaic_virus" in disease_name:
+            recommendations = [
+                "Remove infected plants",
+                "Control insect vectors",
+                "Sanitize tools between uses"
+            ]
+        else:
+            recommendations = ["Consult agricultural expert", "Monitor plant closely"]
+    else:
+        recommendations = ["Plant is healthy", "Continue regular care"]
+    
+    return {
+        "is_healthy": is_healthy,
+        "confidence": confidence,
+        "disease": disease_name,
+        "recommendations": recommendations
+    }
 
 
-@app.route('/', methods=['GET'])
-def index():
-    # Main page
-    return render_template('index.html')
+@app.route('/health', methods=['GET'])
+def health():
+    """Health check endpoint"""
+    return jsonify({"status": "ok", "model_loaded": True})
 
 
-@app.route('/predict', methods=['GET', 'POST'])
-def upload():
-    if request.method == 'POST':
-        # Get the file from post request
-        f = request.files['file']
-
-        # Save the file to ./uploads
-        basepath = os.path.dirname(__file__)
-        file_path = os.path.join(
-            basepath, 'uploads', secure_filename(f.filename))
-        f.save(file_path)
-
+@app.route('/predict', methods=['POST'])
+def predict():
+    """Predict disease from base64 image"""
+    try:
+        data = request.get_json()
+        if not data or 'image' not in data:
+            return jsonify({"error": "No image provided"}), 400
+        
+        # Decode base64 image
+        image_data = data['image']
+        if ',' in image_data:
+            image_data = image_data.split(',')[1]
+        
+        img_bytes = base64.b64decode(image_data)
+        from PIL import Image
+        img = Image.open(io.BytesIO(img_bytes)).convert('RGB')
+        
         # Make prediction
-        preds = model_predict(file_path, model)
-        result=preds
-        return result
-    return None
+        result = model_predict(img, model)
+        result['timestamp'] = int(__import__('time').time() * 1000)
+        
+        return jsonify(result)
+    except Exception as e:
+        print(f"Error: {str(e)}")
+        return jsonify({"error": str(e)}), 500
 
 
 if __name__ == '__main__':
-    app.run(port=5001,debug=True)
+    app.run(host='0.0.0.0', port=5000, debug=True)
