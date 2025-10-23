@@ -1,19 +1,14 @@
-# backend/main.py
+# backend/main_fastapi.py
 """
-FastAPI backend for LeafGuard plant-disease detection - Marko Models Integration
-Integrates PyTorch models from MarkoArsenovic/DeepLearning_PlantDiseases
-
-Endpoints:
+FastAPI backend for LeafGuard plant-disease detection
+Endpoints
   GET  /health
-  POST /predict   JSON {"image": "data:image/...;base64,..."} - Original model
+  POST /predict   JSON {"image": "data:image/...;base64,..."}
   GET  /models    Get available models info
-  POST /predict/marko/{model_type}   Predict using Marko PyTorch models
-  GET  /dataset   Get PlantVillage dataset information
-
-Available Marko models: alexnet, densenet169, inception_v3, resnet34, vgg13, squeezenet1_1
-
+  POST /predict/bhargavi/{model_type}   Predict using Bhargavi models
+  POST /predict/marko/{model_type}      Predict using Marko models
 Run:
-  uvicorn backend.main:app --host 0.0.0.0 --port 5000 --reload
+  uvicorn backend.main_fastapi:app --host 0.0.0.0 --port 5000 --reload
 """
 from __future__ import annotations
 import base64, io, time
@@ -31,6 +26,14 @@ from fastapi import FastAPI, HTTPException, Path
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
+# Import Bhargavi models
+try:
+    from models.bhargavi_models import BhargaviTomatoDiseaseClassifier, get_model_info
+    BHARGAVI_MODELS_AVAILABLE = True
+except ImportError:
+    BHARGAVI_MODELS_AVAILABLE = False
+    print("Warning: Bhargavi models not available")
+
 # Import Marko models
 try:
     from models.marko_models import MarkoPlantDiseaseClassifier, get_marko_model_info, MarkoDatasetInfo
@@ -39,14 +42,16 @@ except ImportError:
     MARKO_MODELS_AVAILABLE = False
     print("Warning: Marko models not available")
 
-# TF config for original model compatibility
+# TF config (same as before)
 config = ConfigProto()
 config.gpu_options.per_process_gpu_memory_fraction = 0.2
 config.gpu_options.allow_growth = True
 InteractiveSession(config=config)
 
 # ------------------------------------------------------------------
-# LOAD ORIGINAL MODEL (for backward compatibility)
+# LOAD MODEL ONCE AT START-UP
+# Resolve the model path relative to this file so uvicorn can find it
+# even when started from different working directories.
 # ------------------------------------------------------------------
 import os
 
@@ -55,18 +60,19 @@ DEFAULT_MODEL_FILENAME = "plant_disease_model.h5"
 MODEL_PATH = os.environ.get("MODEL_PATH") or os.path.join(HERE, DEFAULT_MODEL_FILENAME)
 
 if not os.path.exists(MODEL_PATH):
-    print(f"Warning: Original model file not found: '{MODEL_PATH}'. Only Marko models will be available.")
+    print(f"Warning: Original model file not found: '{MODEL_PATH}'. Only advanced models will be available.")
     model = None
 else:
     model = load_model(MODEL_PATH)
 
-# Initialize Marko models dictionary
+# Initialize model dictionaries
+bhargavi_models = {}
 marko_models = {}
 
 # ------------------------------------------------------------------
 # FASTAPI APP
 # ------------------------------------------------------------------
-app = FastAPI(title="LeafGuard API - Marko Models", version="1.0")
+app = FastAPI(title="LeafGuard API", version="2.0")
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -91,7 +97,7 @@ DISEASE_MAP = {
 }
 
 def model_predict(img: Image.Image) -> Dict[str, Any]:
-    """Original model prediction (legacy/backup)"""
+    """Original model prediction (legacy)"""
     if model is None:
         raise HTTPException(status_code=503, detail="Original model not available")
         
@@ -116,6 +122,16 @@ def model_predict(img: Image.Image) -> Dict[str, Any]:
         "model_type": "original"
     }
 
+def get_bhargavi_model(model_type: str):
+    """Get or create Bhargavi model instance"""
+    if not BHARGAVI_MODELS_AVAILABLE:
+        raise HTTPException(status_code=501, detail="Bhargavi models not available")
+    
+    if model_type not in bhargavi_models:
+        bhargavi_models[model_type] = BhargaviTomatoDiseaseClassifier(model_type=model_type)
+    
+    return bhargavi_models[model_type]
+
 def get_marko_model(model_type: str):
     """Get or create Marko model instance"""
     if not MARKO_MODELS_AVAILABLE:
@@ -126,8 +142,29 @@ def get_marko_model(model_type: str):
     
     return marko_models[model_type]
 
+def bhargavi_model_predict(img: Image.Image, model_type: str) -> Dict[str, Any]:
+    """Predict using Bhargavi models"""
+    classifier = get_bhargavi_model(model_type)
+    
+    # Use Bhargavi model prediction
+    result = classifier.predict(img)
+    
+    # Add recommendations based on prediction
+    disease_name = result['predicted_class']
+    is_healthy = "healthy" in disease_name.lower()
+    recommendations = get_recommendations(disease_name, is_healthy)
+    
+    return {
+        "is_healthy": is_healthy,
+        "confidence": result['confidence'] * 100,  # Convert to percentage
+        "disease": disease_name,
+        "recommendations": recommendations,
+        "model_type": f"bhargavi_{result['model_type']}",
+        "all_predictions": result['all_predictions']
+    }
+
 def marko_model_predict(img: Image.Image, model_type: str) -> Dict[str, Any]:
-    """Predict using Marko PyTorch models"""
+    """Predict using Marko models"""
     classifier = get_marko_model(model_type)
     
     # Use Marko model prediction
@@ -174,6 +211,24 @@ def get_recommendations(disease_name: str, is_healthy: bool) -> list[str]:
                 "Control insect vectors",
                 "Sanitize tools between uses",
             ]
+        elif "Leaf_Mold" in disease_name:
+            return [
+                "Improve ventilation",
+                "Reduce humidity levels",
+                "Apply appropriate fungicide",
+            ]
+        elif "Septoria_leaf_spot" in disease_name:
+            return [
+                "Remove infected leaves",
+                "Apply fungicide treatment",
+                "Avoid overhead watering",
+            ]
+        elif "Target_Spot" in disease_name:
+            return [
+                "Remove infected plant debris",
+                "Apply fungicide treatment",
+                "Improve air circulation",
+            ]
         elif "Powdery_mildew" in disease_name:
             return [
                 "Improve air circulation",
@@ -191,18 +246,6 @@ def get_recommendations(disease_name: str, is_healthy: bool) -> list[str]:
                 "Remove nearby juniper trees if possible",
                 "Apply preventive fungicide",
                 "Improve drainage around trees",
-            ]
-        elif "Esca" in disease_name or "Black_Measles" in disease_name:
-            return [
-                "Prune infected wood",
-                "Apply wound sealant",
-                "Improve vine nutrition",
-            ]
-        elif "Haunglongbing" in disease_name or "Citrus_greening" in disease_name:
-            return [
-                "Remove infected trees immediately",
-                "Control citrus psyllid vectors",
-                "Plant disease-free nursery stock",
             ]
         else:
             return ["Consult agricultural expert", "Monitor plant closely"]
@@ -226,6 +269,7 @@ class PredictOut(BaseModel):
 
 class ModelsOut(BaseModel):
     original: Optional[dict] = None
+    bhargavi: Optional[dict] = None
     marko: Optional[dict] = None
 
 # ------------------------------------------------------------------
@@ -236,6 +280,7 @@ def health() -> Dict[str, Any]:
     return {
         "status": "ok", 
         "original_model_loaded": model is not None,
+        "bhargavi_models_available": BHARGAVI_MODELS_AVAILABLE,
         "marko_models_available": MARKO_MODELS_AVAILABLE
     }
 
@@ -251,6 +296,9 @@ def get_available_models() -> Dict[str, Any]:
             "classes": list(DISEASE_MAP.values())
         }
     
+    if BHARGAVI_MODELS_AVAILABLE:
+        result["bhargavi"] = get_model_info()
+    
     if MARKO_MODELS_AVAILABLE:
         result["marko"] = get_marko_model_info()
         result["marko"]["dataset_info"] = MarkoDatasetInfo.get_dataset_info()
@@ -259,7 +307,7 @@ def get_available_models() -> Dict[str, Any]:
 
 @app.post("/predict", response_model=PredictOut)
 def predict(payload: PredictIn) -> Dict[str, Any]:
-    """Original prediction endpoint (legacy/backup)"""
+    """Original prediction endpoint (legacy)"""
     try:
         b64 = payload.image
         if "," in b64:  # strip data-uri prefix
@@ -277,12 +325,41 @@ def predict(payload: PredictIn) -> Dict[str, Any]:
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
+@app.post("/predict/bhargavi/{model_type}", response_model=PredictOut)
+def predict_with_bhargavi_model(
+    payload: PredictIn, 
+    model_type: str = Path(..., description="Bhargavi model type: cnn, vgg16, or resnet50")
+) -> Dict[str, Any]:
+    """Predict using specific Bhargavi model"""
+    if model_type not in ['cnn', 'vgg16', 'resnet50']:
+        raise HTTPException(
+            status_code=400, 
+            detail=f"Invalid Bhargavi model type. Available: cnn, vgg16, resnet50"
+        )
+    
+    try:
+        b64 = payload.image
+        if "," in b64:  # strip data-uri prefix
+            b64 = b64.split(",")[1]
+
+        img_bytes = base64.b64decode(b64)
+        pil_img = Image.open(io.BytesIO(img_bytes)).convert("RGB")
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=f"Bad image data: {e}")
+
+    try:
+        result = bhargavi_model_predict(pil_img, model_type)
+        result["timestamp"] = int(time.time() * 1000)
+        return result
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
 @app.post("/predict/marko/{model_type}", response_model=PredictOut)
 def predict_with_marko_model(
     payload: PredictIn, 
     model_type: str = Path(..., description="Marko model type: alexnet, densenet169, inception_v3, resnet34, vgg13, squeezenet1_1")
 ) -> Dict[str, Any]:
-    """Predict using specific Marko PyTorch model"""
+    """Predict using specific Marko model"""
     available_models = ['alexnet', 'densenet169', 'inception_v3', 'resnet34', 'vgg13', 'squeezenet1_1']
     if model_type not in available_models:
         raise HTTPException(
@@ -307,7 +384,7 @@ def predict_with_marko_model(
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
-@app.get("/dataset")
+@app.get("/dataset/marko")
 def get_marko_dataset_info():
     """Get PlantVillage dataset information"""
     if not MARKO_MODELS_AVAILABLE:
@@ -315,7 +392,7 @@ def get_marko_dataset_info():
     
     return MarkoDatasetInfo.get_dataset_info()
 
-@app.get("/diseases")
+@app.get("/diseases/marko")
 def get_marko_plant_diseases():
     """Get diseases organized by plant type"""
     if not MARKO_MODELS_AVAILABLE:

@@ -3,3 +3,9 @@ flask-cors
 pillow
 numpy
 tensorflow
+fastapi
+uvicorn[standard]
+python-multipart
+pydantic
+torch
+torchvision
