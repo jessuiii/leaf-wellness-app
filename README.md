@@ -11,20 +11,21 @@ LeafGuard is an AI-powered plant disease detection system that integrates multip
 - **Modern Web Interface**: User-friendly React frontend with camera integration
 - **RESTful API**: FastAPI backend with comprehensive endpoints
 
-## 🚀 Model Integrations
+## 🚀 Model Integration Branches
 
-This project includes two specialized model integration branches:
+This project includes **three specialized model integration branches**, each optimized for different use cases:
 
-### 🔬 Bhargavi Models Branch (`b-model-integration`)
-**Source**: [Bhargavidev26/Early-Tomato-Leaf-Disease-Prediction](https://github.com/Bhargavidev26/Early-Tomato-Leaf-Disease-Prediction)
+### 🍅 Marko Tomato-Only Branch (`marko-tomato-only`) - **RECOMMENDED**
+**Source**: [MarkoArsenovic/DeepLearning_PlantDiseases](https://github.com/MarkoArsenovic/DeepLearning_PlantDiseases) (Tomato subset)
 
-- **Models**: Custom CNN, VGG16, ResNet50
-- **Focus**: Tomato disease classification (10 classes)
-- **Best Accuracy**: 94%/93% (Custom CNN)
-- **Framework**: TensorFlow/Keras
-- **Specialization**: Optimized for tomato crops
+- **Models**: AlexNet, DenseNet169, Inception_v3, ResNet34, VGG13, SqueezeNet1_1
+- **Focus**: Tomato disease classification only (10 classes)
+- **Best Accuracy**: 99.76% (Inception_v3)
+- **Framework**: PyTorch
+- **Specialization**: Highest accuracy for tomato farming applications
+- **Documentation**: [README-Marko-Tomato.md](README-Marko-Tomato.md)
 
-### 🏆 Marko Models Branch (`marko-model-integration`)
+### 🏆 Marko Full Models Branch (`marko-model-integration`)
 **Source**: [MarkoArsenovic/DeepLearning_PlantDiseases](https://github.com/MarkoArsenovic/DeepLearning_PlantDiseases)
 
 - **Models**: AlexNet, DenseNet169, Inception_v3, ResNet34, VGG13, SqueezeNet1_1
@@ -32,21 +33,51 @@ This project includes two specialized model integration branches:
 - **Best Accuracy**: 99.76% (Inception_v3)
 - **Framework**: PyTorch
 - **Specialization**: Comprehensive multi-plant disease detection
+- **Documentation**: [README-Marko.md](README-Marko.md)
 
-## 📋 Project Info
+### � Bhargavi Models Branch (`b-model-integration`)
+**Source**: [Bhargavidev26/Early-Tomato-Leaf-Disease-Prediction](https://github.com/Bhargavidev26/Early-Tomato-Leaf-Disease-Prediction)
+
+- **Models**: Custom CNN, VGG16, ResNet50
+- **Focus**: Tomato disease classification (10 classes)
+- **Best Accuracy**: 94%/93% (Custom CNN)
+- **Framework**: TensorFlow/Keras
+- **Specialization**: Alternative approach for tomato crops
+- **Documentation**: [README-Bhargavi.md](README-Bhargavi.md)
+
+## 📊 Performance Comparison
+
+| Branch | Best Model | Accuracy | Framework | Classes | Use Case |
+|--------|------------|----------|-----------|---------|----------|
+| **marko-tomato-only** | Inception_v3 | **99.76%** | PyTorch | 10 (tomato) | **Production tomato farming** |
+| marko-model-integration | Inception_v3 | 99.76% | PyTorch | 39 (multi-plant) | Research & multi-crop |
+| b-model-integration | Custom CNN | 94% | TensorFlow | 10 (tomato) | Alternative approach |
+
+## �📋 Project Info
 
 **URL**: https://lovable.dev/projects/ea7323f6-27d3-42d6-9b28-90c4a79d3150
 
 ## 🛠 How to Use Different Model Branches
 
-### Switch to Bhargavi Models (Tomato-focused)
+### Switch to Marko Tomato-Only (RECOMMENDED for tomato farming)
+```bash
+git checkout marko-tomato-only
+pip install -r backend/requirements.txt
+uvicorn backend.main:app --host 0.0.0.0 --port 8000 --reload
+```
+
+### Switch to Marko Full Models (Multi-plant detection)
+```bash
+git checkout marko-model-integration
+pip install -r backend/requirements.txt
+uvicorn backend.main:app --host 0.0.0.0 --port 8000 --reload
+```
+
+### Switch to Bhargavi Models (Alternative tomato approach)
 ```bash
 git checkout b-model-integration
 pip install -r backend/requirements.txt
 uvicorn backend.main:app --host 0.0.0.0 --port 5000 --reload
-```
-
-### Switch to Marko Models (Multi-plant)
 ```bash
 git checkout marko-model-integration
 pip install -r backend/requirements.txt

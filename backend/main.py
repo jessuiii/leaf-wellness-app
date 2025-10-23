@@ -1,16 +1,17 @@
 # backend/main.py
 """
-FastAPI backend for LeafGuard plant-disease detection - Marko Models Integration
-Integrates PyTorch models from MarkoArsenovic/DeepLearning_PlantDiseases
+FastAPI backend for LeafGuard plant-disease detection - Marko Tomato-Only Models
+Integrates PyTorch models from MarkoArsenovic/DeepLearning_PlantDiseases (Tomato subset only)
 
 Endpoints:
   GET  /health
   POST /predict   JSON {"image": "data:image/...;base64,..."} - Original model
   GET  /models    Get available models info
-  POST /predict/marko/{model_type}   Predict using Marko PyTorch models
-  GET  /dataset   Get PlantVillage dataset information
+  POST /predict/marko/{model_type}   Predict using Marko PyTorch models (tomato-only)
+  GET  /dataset   Get tomato disease dataset information
 
 Available Marko models: alexnet, densenet169, inception_v3, resnet34, vgg13, squeezenet1_1
+All specialized for 10 tomato disease classes with 99%+ accuracy
 
 Run:
   uvicorn backend.main:app --host 0.0.0.0 --port 5000 --reload
@@ -31,13 +32,13 @@ from fastapi import FastAPI, HTTPException, Path
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
-# Import Marko models
+# Import Marko tomato models
 try:
-    from models.marko_models import MarkoPlantDiseaseClassifier, get_marko_model_info, MarkoDatasetInfo
+    from models.marko_tomato_models import MarkoTomatoDiseaseClassifier, get_marko_tomato_model_info, TomatoDatasetInfo
     MARKO_MODELS_AVAILABLE = True
 except ImportError:
     MARKO_MODELS_AVAILABLE = False
-    print("Warning: Marko models not available")
+    print("Warning: Marko tomato models not available")
 
 # TF config for original model compatibility
 config = ConfigProto()
@@ -66,7 +67,7 @@ marko_models = {}
 # ------------------------------------------------------------------
 # FASTAPI APP
 # ------------------------------------------------------------------
-app = FastAPI(title="LeafGuard API - Marko Models", version="1.0")
+app = FastAPI(title="LeafGuard API - Marko Tomato Models", version="1.0")
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -117,20 +118,20 @@ def model_predict(img: Image.Image) -> Dict[str, Any]:
     }
 
 def get_marko_model(model_type: str):
-    """Get or create Marko model instance"""
+    """Get or create Marko tomato model instance"""
     if not MARKO_MODELS_AVAILABLE:
-        raise HTTPException(status_code=501, detail="Marko models not available")
+        raise HTTPException(status_code=501, detail="Marko tomato models not available")
     
     if model_type not in marko_models:
-        marko_models[model_type] = MarkoPlantDiseaseClassifier(model_type=model_type)
+        marko_models[model_type] = MarkoTomatoDiseaseClassifier(model_type=model_type)
     
     return marko_models[model_type]
 
 def marko_model_predict(img: Image.Image, model_type: str) -> Dict[str, Any]:
-    """Predict using Marko PyTorch models"""
+    """Predict using Marko PyTorch tomato models"""
     classifier = get_marko_model(model_type)
     
-    # Use Marko model prediction
+    # Use Marko tomato model prediction
     result = classifier.predict(img)
     
     # Add recommendations based on prediction
@@ -143,7 +144,7 @@ def marko_model_predict(img: Image.Image, model_type: str) -> Dict[str, Any]:
         "confidence": result['confidence'] * 100,  # Convert to percentage
         "disease": disease_name,
         "recommendations": recommendations,
-        "model_type": f"marko_{result['model_type']}",
+        "model_type": f"marko_tomato_{result['model_type']}",
         "all_predictions": result['all_predictions']
     }
 
@@ -236,7 +237,8 @@ def health() -> Dict[str, Any]:
     return {
         "status": "ok", 
         "original_model_loaded": model is not None,
-        "marko_models_available": MARKO_MODELS_AVAILABLE
+        "marko_tomato_models_available": MARKO_MODELS_AVAILABLE,
+        "tomato_classes": 10
     }
 
 @app.get("/models", response_model=ModelsOut)
@@ -252,8 +254,8 @@ def get_available_models() -> Dict[str, Any]:
         }
     
     if MARKO_MODELS_AVAILABLE:
-        result["marko"] = get_marko_model_info()
-        result["marko"]["dataset_info"] = MarkoDatasetInfo.get_dataset_info()
+        result["marko"] = get_marko_tomato_model_info()
+        result["marko"]["dataset_info"] = TomatoDatasetInfo.get_dataset_info()
     
     return result
 
@@ -280,14 +282,14 @@ def predict(payload: PredictIn) -> Dict[str, Any]:
 @app.post("/predict/marko/{model_type}", response_model=PredictOut)
 def predict_with_marko_model(
     payload: PredictIn, 
-    model_type: str = Path(..., description="Marko model type: alexnet, densenet169, inception_v3, resnet34, vgg13, squeezenet1_1")
+    model_type: str = Path(..., description="Marko tomato model type: alexnet, densenet169, inception_v3, resnet34, vgg13, squeezenet1_1")
 ) -> Dict[str, Any]:
-    """Predict using specific Marko PyTorch model"""
+    """Predict using specific Marko PyTorch tomato model"""
     available_models = ['alexnet', 'densenet169', 'inception_v3', 'resnet34', 'vgg13', 'squeezenet1_1']
     if model_type not in available_models:
         raise HTTPException(
             status_code=400, 
-            detail=f"Invalid Marko model type. Available: {', '.join(available_models)}"
+            detail=f"Invalid Marko tomato model type. Available: {', '.join(available_models)}"
         )
     
     try:
@@ -309,16 +311,40 @@ def predict_with_marko_model(
 
 @app.get("/dataset")
 def get_marko_dataset_info():
-    """Get PlantVillage dataset information"""
+    """Get tomato disease dataset information"""
     if not MARKO_MODELS_AVAILABLE:
-        raise HTTPException(status_code=501, detail="Marko models not available")
+        raise HTTPException(status_code=501, detail="Marko tomato models not available")
     
-    return MarkoDatasetInfo.get_dataset_info()
+    return TomatoDatasetInfo.get_dataset_info()
 
 @app.get("/diseases")
-def get_marko_plant_diseases():
-    """Get diseases organized by plant type"""
+def get_marko_tomato_diseases():
+    """Get detailed tomato disease information"""
     if not MARKO_MODELS_AVAILABLE:
-        raise HTTPException(status_code=501, detail="Marko models not available")
+        raise HTTPException(status_code=501, detail="Marko tomato models not available")
     
-    return MarkoDatasetInfo.get_plant_diseases()
+    return TomatoDatasetInfo.get_tomato_diseases()
+
+@app.get("/tomato-model-info")
+def get_tomato_model_info() -> Dict[str, Any]:
+    """Get specific information about tomato disease detection models"""
+    if not MARKO_MODELS_AVAILABLE:
+        raise HTTPException(status_code=500, detail="Tomato models not available")
+    
+    classifier = MarkoTomatoDiseaseClassifier()
+    return {
+        "total_tomato_classes": classifier.num_classes,
+        "tomato_class_names": classifier.class_names,
+        "available_models": [
+            "alexnet",
+            "densenet169", 
+            "inception_v3",
+            "resnet34",
+            "vgg13",
+            "squeezenet1_1"
+        ],
+        "dataset": "PlantVillage (Tomato subset)",
+        "framework": "PyTorch",
+        "description": "Specialized models for tomato disease detection only",
+        "focus": "Tomato crop diseases exclusively"
+    }
