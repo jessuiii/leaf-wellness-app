@@ -1,5 +1,18 @@
-flask
-flask-cors
+# Core backend deps (FastAPI)
+fastapi
+uvicorn[standard]
+python-multipart
 pillow
 numpy
 tensorflow
+python-dotenv
+
+# Azure Digital Twins integration
+azure-digitaltwins-core
+azure-identity
+azure-storage-blob
+
+# Notes:
+# - This project uses FastAPI (see backend/main.py).
+# - On Windows, installing `tensorflow` may require a compatible Python (3.8-3.11) and pip upgrade.
+# - Azure SDK packages added for digital twin integration.

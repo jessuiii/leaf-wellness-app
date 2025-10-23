@@ -4,7 +4,7 @@ import { Camera as CameraIcon, Image as ImageIcon, Upload } from 'lucide-react';
 import { toast } from 'sonner';
 
 interface CameraCaptureProps {
-  onImageCapture: (imageData: string) => void;
+  onImageCapture: (imageData: string, imageFile?: File) => void;
 }
 
 export const CameraCapture = ({ onImageCapture }: CameraCaptureProps) => {
@@ -24,7 +24,7 @@ export const CameraCapture = ({ onImageCapture }: CameraCaptureProps) => {
     reader.onload = (e) => {
       const result = e.target?.result as string;
       if (result) {
-        onImageCapture(result);
+        onImageCapture(result, file);
       }
     };
     reader.onerror = () => {

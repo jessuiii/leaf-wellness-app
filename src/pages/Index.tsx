@@ -2,11 +2,13 @@ import { useState, useEffect } from 'react';
 import { CameraCapture } from '@/components/CameraCapture';
 import { LeafAnalysis, AnalysisResult } from '@/components/LeafAnalysis';
 import { ScanHistory } from '@/components/ScanHistory';
+import { PlantViewer3D } from '@/components/PlantViewer3D';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Leaf } from 'lucide-react';
+import { Leaf, Scan, History, Boxes } from 'lucide-react';
 
 const Index = () => {
   const [capturedImage, setCapturedImage] = useState<string | null>(null);
+  const [capturedFile, setCapturedFile] = useState<File | null>(null);
   const [scanHistory, setScanHistory] = useState<AnalysisResult[]>([]);
 
   useEffect(() => {
@@ -17,8 +19,9 @@ const Index = () => {
     }
   }, []);
 
-  const handleImageCapture = (imageData: string) => {
+  const handleImageCapture = (imageData: string, imageFile?: File) => {
     setCapturedImage(imageData);
+    setCapturedFile(imageFile || null);
   };
 
   const handleAnalysisComplete = (result: AnalysisResult) => {
@@ -28,6 +31,9 @@ const Index = () => {
   };
 
   const handleBack = () => {
+    setCapturedImage(null);
+    setCapturedFile(null);
+  };
     setCapturedImage(null);
   };
 
@@ -49,9 +55,19 @@ const Index = () => {
 
         {!capturedImage ? (
           <Tabs defaultValue="scan" className="w-full">
-            <TabsList className="grid w-full grid-cols-2 mb-8">
-              <TabsTrigger value="scan" className="text-lg">Scan</TabsTrigger>
-              <TabsTrigger value="history" className="text-lg">History</TabsTrigger>
+            <TabsList className="grid w-full grid-cols-3 mb-8">
+              <TabsTrigger value="scan" className="text-lg flex items-center">
+                <Scan className="mr-2 h-4 w-4" />
+                Scan
+              </TabsTrigger>
+              <TabsTrigger value="history" className="text-lg flex items-center">
+                <History className="mr-2 h-4 w-4" />
+                History
+              </TabsTrigger>
+              <TabsTrigger value="3d-view" className="text-lg flex items-center">
+                <Boxes className="mr-2 h-4 w-4" />
+                3D View
+              </TabsTrigger>
             </TabsList>
             
             <TabsContent value="scan" className="space-y-6">
@@ -65,10 +81,12 @@ const Index = () => {
               <div className="bg-card rounded-2xl p-6 shadow-soft">
                 <h3 className="font-semibold mb-3">How it works:</h3>
                 <ol className="list-decimal list-inside space-y-2 text-sm text-muted-foreground">
+                  <li>Select or create a plant ID for tracking</li>
                   <li>Take a photo or select from gallery</li>
-                  <li>Our AI analyzes the leaf</li>
+                  <li>Our AI analyzes the leaf and updates the digital twin</li>
                   <li>Get instant disease detection results</li>
                   <li>Follow recommendations for treatment</li>
+                  <li>View plant history and 3D visualization</li>
                 </ol>
               </div>
             </TabsContent>
@@ -78,11 +96,18 @@ const Index = () => {
                 <ScanHistory history={scanHistory} />
               </div>
             </TabsContent>
+
+            <TabsContent value="3d-view">
+              <div className="bg-card rounded-2xl p-6 shadow-medium">
+                <PlantViewer3D />
+              </div>
+            </TabsContent>
           </Tabs>
         ) : (
           <div className="bg-card rounded-2xl p-8 shadow-medium">
             <LeafAnalysis
               imageData={capturedImage}
+              imageFile={capturedFile}
               onBack={handleBack}
               onAnalysisComplete={handleAnalysisComplete}
             />

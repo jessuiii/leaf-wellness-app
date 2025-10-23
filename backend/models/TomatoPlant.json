@@ -1,0 +1,227 @@
+{
+  "@context": "dtmi:dtdl:context;2",
+  "@id": "dtmi:leafguard:TomatoPlant;1",
+  "@type": "Interface",
+  "displayName": "Tomato Plant",
+  "description": "A digital twin model for tomato plants in the LeafGuard system",
+  "contents": [
+    {
+      "@type": "Property",
+      "name": "plantId",
+      "displayName": "Plant ID",
+      "description": "Unique identifier for the plant",
+      "schema": "string",
+      "writable": true
+    },
+    {
+      "@type": "Property",
+      "name": "position",
+      "displayName": "Plant Position",
+      "description": "Physical position of the plant in the greenhouse",
+      "schema": {
+        "@type": "Object",
+        "fields": [
+          {
+            "name": "row",
+            "schema": "string"
+          },
+          {
+            "name": "column",
+            "schema": "integer"
+          },
+          {
+            "name": "greenhouse",
+            "schema": "string"
+          }
+        ]
+      },
+      "writable": true
+    },
+    {
+      "@type": "Property",
+      "name": "currentHealth",
+      "displayName": "Current Health Status",
+      "description": "Current health status of the plant",
+      "schema": "string",
+      "writable": true
+    },
+    {
+      "@type": "Property",
+      "name": "diseaseDetected",
+      "displayName": "Disease Detected",
+      "description": "Most recently detected disease",
+      "schema": "string",
+      "writable": true
+    },
+    {
+      "@type": "Property",
+      "name": "confidence",
+      "displayName": "Detection Confidence",
+      "description": "Confidence score of the latest disease detection",
+      "schema": "double",
+      "writable": true
+    },
+    {
+      "@type": "Property",
+      "name": "lastScanDate",
+      "displayName": "Last Scan Date",
+      "description": "Timestamp of the most recent scan",
+      "schema": "dateTime",
+      "writable": true
+    },
+    {
+      "@type": "Property",
+      "name": "visualStatus",
+      "displayName": "Visual Status",
+      "description": "Visual indicator status for 3D display",
+      "schema": {
+        "@type": "Enum",
+        "valueSchema": "string",
+        "enumValues": [
+          {
+            "name": "healthy",
+            "displayName": "Healthy",
+            "enumValue": "healthy"
+          },
+          {
+            "name": "warning",
+            "displayName": "Warning",
+            "enumValue": "warning"
+          },
+          {
+            "name": "critical",
+            "displayName": "Critical",
+            "enumValue": "critical"
+          },
+          {
+            "name": "treatment",
+            "displayName": "Under Treatment",
+            "enumValue": "treatment"
+          },
+          {
+            "name": "unknown",
+            "displayName": "Unknown",
+            "enumValue": "unknown"
+          }
+        ]
+      },
+      "writable": true
+    },
+    {
+      "@type": "Property",
+      "name": "scanHistory",
+      "displayName": "Scan History",
+      "description": "Historical scan results for this plant",
+      "schema": {
+        "@type": "Array",
+        "elementSchema": {
+          "@type": "Object",
+          "fields": [
+            {
+              "name": "timestamp",
+              "schema": "dateTime"
+            },
+            {
+              "name": "disease",
+              "schema": "string"
+            },
+            {
+              "name": "confidence",
+              "schema": "double"
+            },
+            {
+              "name": "imageUrl",
+              "schema": "string"
+            }
+          ]
+        }
+      },
+      "writable": true
+    },
+    {
+      "@type": "Property",
+      "name": "treatmentHistory",
+      "displayName": "Treatment History",
+      "description": "History of treatments applied to this plant",
+      "schema": {
+        "@type": "Array",
+        "elementSchema": {
+          "@type": "Object",
+          "fields": [
+            {
+              "name": "timestamp",
+              "schema": "dateTime"
+            },
+            {
+              "name": "treatment",
+              "schema": "string"
+            },
+            {
+              "name": "dosage",
+              "schema": "string"
+            },
+            {
+              "name": "notes",
+              "schema": "string"
+            }
+          ]
+        }
+      },
+      "writable": true
+    },
+    {
+      "@type": "Telemetry",
+      "name": "leafScan",
+      "displayName": "Leaf Scan Telemetry",
+      "description": "Real-time leaf scan results",
+      "schema": {
+        "@type": "Object",
+        "fields": [
+          {
+            "name": "disease",
+            "schema": "string"
+          },
+          {
+            "name": "confidence",
+            "schema": "double"
+          },
+          {
+            "name": "timestamp",
+            "schema": "dateTime"
+          },
+          {
+            "name": "imageUrl",
+            "schema": "string"
+          }
+        ]
+      }
+    },
+    {
+      "@type": "Telemetry",
+      "name": "environmentalData",
+      "displayName": "Environmental Telemetry",
+      "description": "Environmental sensor data",
+      "schema": {
+        "@type": "Object",
+        "fields": [
+          {
+            "name": "temperature",
+            "schema": "double"
+          },
+          {
+            "name": "humidity",
+            "schema": "double"
+          },
+          {
+            "name": "soilMoisture",
+            "schema": "double"
+          },
+          {
+            "name": "lightLevel",
+            "schema": "double"
+          }
+        ]
+      }
+    }
+  ]
+}
