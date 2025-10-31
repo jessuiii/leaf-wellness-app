@@ -199,6 +199,174 @@ classifier.load_model(weights_path='trained_models/densenet169_tomato.pth')
 result = classifier.predict(image)
 ```
 
+## 🔍 Model Interpretability & Visualization
+
+### **Why Visualization Matters**
+
+Understanding **what your model sees** is crucial for:
+- 🔬 **Scientific Validation**: Verify the model focuses on disease symptoms, not background
+- 🛡️ **Trust & Safety**: Build confidence in AI-powered agricultural decisions  
+- 🐛 **Debugging**: Identify potential biases or failure modes
+- 📊 **Research**: Generate publication-quality visualizations for papers
+
+### **Available Visualization Methods**
+
+#### **1. Saliency Maps** 
+Shows which pixels are most important for classification
+
+```bash
+# Generate saliency map
+python backend/densenet_saliency.py \
+    trained_models/densenet169_tomato.pth \
+    dataset/tomato_disease \
+    test_images/early_blight.jpg \
+    "Tomato___Early_blight" \
+    --output_dir visualizations/saliency/
+```
+
+**Methods Available:**
+- **Naive Backpropagation**: Standard gradient visualization
+- **Guided Backpropagation**: Enhanced method showing positive contributions
+
+#### **2. Occlusion Analysis**
+Reveals which image regions are most important by systematically masking them
+
+```bash
+# Generate occlusion heatmap
+python backend/densenet_occlusion.py \
+    trained_models/densenet169_tomato.pth \
+    dataset/tomato_disease \
+    test_images/early_blight.jpg \
+    "Tomato___Early_blight" \
+    --size 50 --stride 10 \
+    --output_dir visualizations/occlusion/
+```
+
+**Parameters:**
+- `--size`: Size of occlusion window (default: 50px)
+- `--stride`: Step size for sliding window (default: 10px)
+
+#### **3. Training Visualizations**
+Comprehensive training analysis and performance plots
+
+```bash
+# Generate training plots
+python backend/densenet_plot.py \
+    --stats_file training_stats.csv \
+    --output_dir visualizations/plots/
+```
+
+**Generated Plots:**
+- Loss curves (training/validation)
+- Accuracy curves (training/validation)  
+- Learning rate schedule
+- Overfitting analysis
+- Confusion matrix template
+
+### **API Visualization Endpoints**
+
+#### **Saliency Map API**
+
+```bash
+curl -X POST "http://localhost:8000/visualize/saliency" \
+     -H "Content-Type: application/json" \
+     -d '{
+       "image": "data:image/jpeg;base64,...",
+       "disease_class": "Tomato___Early_blight",
+       "method": "guided",
+       "output_format": "base64"
+     }'
+```
+
+**Response:**
+```json
+{
+  "success": true,
+  "image_original": "data:image/png;base64,...",
+  "image_visualization": "data:image/png;base64,...",
+  "method": "guided",
+  "target_class": "Tomato___Early_blight",
+  "confidence": 0.9876,
+  "predicted_class": "Tomato___Early_blight",
+  "processing_time": 2.34
+}
+```
+
+#### **Occlusion Map API**
+
+```bash
+curl -X POST "http://localhost:8000/visualize/occlusion" \
+     -H "Content-Type: application/json" \
+     -d '{
+       "image": "data:image/jpeg;base64,...",
+       "disease_class": "Tomato___Early_blight",
+       "occlusion_size": 50,
+       "stride": 10
+     }'
+```
+
+#### **Available Methods API**
+
+```bash
+curl "http://localhost:8000/visualize/methods"
+```
+
+### **Visualization Dependencies**
+
+```bash
+# Install visualization dependencies
+pip install matplotlib>=3.5.0 seaborn>=0.11.0 pandas>=1.3.0
+```
+
+### **Programmatic Visualization**
+
+```python
+from backend.visualization.torchvis_util import GradType, augment_module
+from backend.models.densenet_tomato_model import DenseNetTomatoClassifier
+import torch
+import matplotlib.pyplot as plt
+
+# Load model
+classifier = DenseNetTomatoClassifier()
+classifier.load_model()
+
+# Set up visualization
+vis_param_dict, reset_state, remove_handles = augment_module(classifier.model)
+vis_param_dict['method'] = GradType.GUIDED
+
+# Generate saliency for your image
+# (see densenet_saliency.py for complete implementation)
+```
+
+### **Visualization Examples**
+
+#### **Saliency Map Results**
+- **Original Image**: Input tomato leaf photo
+- **Naive Backpropagation**: Shows raw pixel importance  
+- **Guided Backpropagation**: Enhanced visualization highlighting positive contributions
+- **Overlay**: Combined view showing attention areas
+
+#### **Occlusion Analysis Results**  
+- **Original Image**: Input photo
+- **Heatmap**: Color-coded importance map (red = high importance)
+- **Overlay**: Combined view showing critical regions
+
+#### **Training Analysis Results**
+- **Loss Curves**: Training progress over epochs
+- **Accuracy Curves**: Model performance improvement  
+- **Overfitting Analysis**: Generalization gap analysis
+- **Performance Summary**: Key metrics and statistics
+
+### **Scientific References**
+
+The visualization methods are based on established research:
+
+- **Saliency Maps**: Simonyan et al. (2013) - "Deep Inside Convolutional Networks"
+- **Guided Backpropagation**: Springenberg et al. (2014) - "Striving for Simplicity"  
+- **Occlusion**: Zeiler & Fergus (2014) - "Visualizing and Understanding CNNs"
+
+*Adapted from MarkoArsenovic/DeepLearning_PlantDiseases for modern PyTorch and tomato-specific analysis.*
+
 ### **Training Script**
 
 ```python
