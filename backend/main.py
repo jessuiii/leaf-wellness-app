@@ -32,7 +32,15 @@ from fastapi import FastAPI, HTTPException, Path
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
-# Import Marko tomato models
+# Import DenseNet tomato model
+try:
+    from models.densenet_tomato_model import DenseNetTomatoClassifier, get_densenet_model_info, TomatoDiseaseInfo
+    DENSENET_MODELS_AVAILABLE = True
+except ImportError:
+    DENSENET_MODELS_AVAILABLE = False
+    print("Warning: DenseNet tomato models not available")
+
+# Import Marko tomato models (backup)
 try:
     from models.marko_tomato_models import MarkoTomatoDiseaseClassifier, get_marko_tomato_model_info, TomatoDatasetInfo
     MARKO_MODELS_AVAILABLE = True
@@ -61,13 +69,14 @@ if not os.path.exists(MODEL_PATH):
 else:
     model = load_model(MODEL_PATH)
 
-# Initialize Marko models dictionary
+# Initialize model dictionaries
 marko_models = {}
+densenet_model = None
 
 # ------------------------------------------------------------------
 # FASTAPI APP
 # ------------------------------------------------------------------
-app = FastAPI(title="LeafGuard API - Marko Tomato Models", version="1.0")
+app = FastAPI(title="LeafGuard API - DenseNet169 Tomato Detection", version="1.0")
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -146,6 +155,46 @@ def marko_model_predict(img: Image.Image, model_type: str) -> Dict[str, Any]:
         "recommendations": recommendations,
         "model_type": f"marko_tomato_{result['model_type']}",
         "all_predictions": result['all_predictions']
+    }
+
+def get_densenet_model():
+    """Get or create DenseNet tomato model instance"""
+    global densenet_model
+    if not DENSENET_MODELS_AVAILABLE:
+        raise HTTPException(status_code=501, detail="DenseNet tomato models not available")
+    
+    if densenet_model is None:
+        densenet_model = DenseNetTomatoClassifier()
+        densenet_model.load_model()  # Load with ImageNet weights
+    
+    return densenet_model
+
+def densenet_model_predict(img: Image.Image, weights_path: str = None) -> Dict[str, Any]:
+    """Predict using DenseNet169 tomato model"""
+    if weights_path:
+        # Create new instance with custom weights
+        classifier = DenseNetTomatoClassifier()
+        classifier.load_model(weights_path=weights_path)
+    else:
+        # Use cached model instance
+        classifier = get_densenet_model()
+    
+    # Make prediction
+    result = classifier.predict(img)
+    
+    # Add recommendations
+    disease_name = result['predicted_class']
+    is_healthy = "healthy" in disease_name.lower()
+    recommendations = get_recommendations(disease_name, is_healthy)
+    
+    return {
+        "is_healthy": is_healthy,
+        "confidence": result['confidence'] * 100,
+        "disease": disease_name,
+        "recommendations": recommendations,
+        "model_type": "densenet169_tomato",
+        "all_predictions": result['all_predictions'],
+        "custom_weights": weights_path is not None
     }
 
 def get_recommendations(disease_name: str, is_healthy: bool) -> list[str]:
@@ -237,7 +286,9 @@ def health() -> Dict[str, Any]:
     return {
         "status": "ok", 
         "original_model_loaded": model is not None,
+        "densenet_models_available": DENSENET_MODELS_AVAILABLE,
         "marko_tomato_models_available": MARKO_MODELS_AVAILABLE,
+        "primary_model": "DenseNet169",
         "tomato_classes": 10
     }
 
@@ -274,6 +325,57 @@ def predict(payload: PredictIn) -> Dict[str, Any]:
 
     try:
         result = model_predict(pil_img)
+        result["timestamp"] = int(time.time() * 1000)
+        return result
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/predict/densenet", response_model=PredictOut)
+def predict_with_densenet(payload: PredictIn) -> Dict[str, Any]:
+    """Predict using DenseNet169 tomato model (primary endpoint)"""
+    try:
+        b64 = payload.image
+        if "," in b64:  # strip data-uri prefix
+            b64 = b64.split(",")[1]
+
+        img_bytes = base64.b64decode(b64)
+        pil_img = Image.open(io.BytesIO(img_bytes)).convert("RGB")
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=f"Bad image data: {e}")
+
+    try:
+        result = densenet_model_predict(pil_img)
+        result["timestamp"] = int(time.time() * 1000)
+        return result
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/predict/densenet/custom", response_model=PredictOut)
+def predict_with_custom_densenet(
+    payload: PredictIn,
+    weights_path: str = Path(..., description="Path to custom trained DenseNet169 weights (.pth file)")
+) -> Dict[str, Any]:
+    """Predict using custom trained DenseNet169 model"""
+    
+    # Check if weights file exists
+    if not os.path.exists(weights_path):
+        raise HTTPException(
+            status_code=404,
+            detail=f"Custom weights file not found: {weights_path}"
+        )
+    
+    try:
+        b64 = payload.image
+        if "," in b64:  # strip data-uri prefix
+            b64 = b64.split(",")[1]
+
+        img_bytes = base64.b64decode(b64)
+        pil_img = Image.open(io.BytesIO(img_bytes)).convert("RGB")
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=f"Bad image data: {e}")
+
+    try:
+        result = densenet_model_predict(pil_img, weights_path=weights_path)
         result["timestamp"] = int(time.time() * 1000)
         return result
     except Exception as e:
@@ -348,3 +450,39 @@ def get_tomato_model_info() -> Dict[str, Any]:
         "description": "Specialized models for tomato disease detection only",
         "focus": "Tomato crop diseases exclusively"
     }
+
+@app.get("/densenet-info")
+def get_densenet_model_info() -> Dict[str, Any]:
+    """Get information about DenseNet169 tomato model"""
+    if not DENSENET_MODELS_AVAILABLE:
+        raise HTTPException(status_code=500, detail="DenseNet models not available")
+    
+    info = get_densenet_model_info()
+    return {
+        "model_name": info['model_name'],
+        "architecture": info['architecture'],
+        "num_classes": info['num_classes'],
+        "input_size": info['input_size'],
+        "framework": info['framework'],
+        "expected_accuracy": info['expected_accuracy'],
+        "class_names": info['class_names'],
+        "training_support": True,
+        "custom_weights_support": True,
+        "primary_model": True
+    }
+
+@app.get("/densenet-diseases")
+def get_densenet_disease_info():
+    """Get detailed tomato disease information for DenseNet model"""
+    if not DENSENET_MODELS_AVAILABLE:
+        raise HTTPException(status_code=501, detail="DenseNet models not available")
+    
+    return TomatoDiseaseInfo.get_disease_info()
+
+@app.get("/densenet-dataset")
+def get_densenet_dataset_info():
+    """Get dataset information for DenseNet training"""
+    if not DENSENET_MODELS_AVAILABLE:
+        raise HTTPException(status_code=501, detail="DenseNet models not available")
+    
+    return TomatoDiseaseInfo.get_dataset_info()
