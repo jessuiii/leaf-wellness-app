@@ -8,6 +8,14 @@
 3. ✅ `DenseNet_Colab_Training.ipynb` (this notebook)
 4. 📁 Your dataset: `dataset/tomato_disease/` (zipped)
 
+### **🔬 Optional Visualization Files:**
+5. ✅ `densenet_saliency.py` - Generate saliency maps
+6. ✅ `densenet_occlusion.py` - Occlusion analysis
+7. ✅ `densenet_plot.py` - Training progress plots
+8. ✅ `torchvis_util.py` - Visualization utilities
+
+**Note**: Upload visualization files for model interpretability and analysis!
+
 ### **⚡ Quick Start:**
 1. Open Google Colab → Upload the notebook
 2. Upload the 2 Python files to Colab
@@ -28,6 +36,12 @@ cp backend/models/densenet_trainer.py colab_training/
 cp backend/models/densenet_tomato_model.py colab_training/
 cp DenseNet_Colab_Training.ipynb colab_training/
 
+# Copy visualization files for model analysis
+cp backend/densenet_saliency.py colab_training/
+cp backend/densenet_occlusion.py colab_training/
+cp backend/densenet_plot.py colab_training/
+cp backend/visualization/torchvis_util.py colab_training/
+
 # Zip your dataset (exclude this from git)
 # Your dataset should be at: dataset/tomato_disease/
 zip -r tomato_disease.zip dataset/tomato_disease/
@@ -39,6 +53,10 @@ zip -r tomato_disease.zip dataset/tomato_disease/
 3. **Upload Files** (drag & drop to file panel):
    - `densenet_trainer.py`
    - `densenet_tomato_model.py`
+   - `densenet_saliency.py` (optional)
+   - `densenet_occlusion.py` (optional)
+   - `densenet_plot.py` (optional)
+   - `torchvis_util.py` (optional)
    - `tomato_disease.zip` (your dataset)
 
 ### **Step 3: Enable GPU**
@@ -64,6 +82,7 @@ zip -r tomato_disease.zip dataset/tomato_disease/
 | **Accuracy** | 99.72% | 99.72% |
 | **Batch Size** | 8 (memory limited) | 32+ (optimized) |
 | **Epochs** | 25 | 25 |
+| **Visualizations** | Limited | ✅ Saliency + Occlusion |
 
 ## 🔍 **Troubleshooting**
 
